@@ -1,0 +1,639 @@
+---
+title: "Results"
+author: "Neal R Haddaway"
+date: "27/05/2021"
+output:
+  bookdown::pdf_document2: default
+always_allow_html: true
+toc: false
+fontsize: 12pt
+editor_options:
+  chunk_output_type: inline
+header-includes: \usepackage{float} \floatplacement{figure}{H} \floatplacement{table}{H}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache=FALSE)
+library(magrittr)
+```
+
+```{r data, include=FALSE}
+data <- read.csv('./inst/extdata/3mk_map.csv', stringsAsFactors = FALSE)
+articles <- dplyr::distinct(data, citation, .keep_all = TRUE)
+```
+#Results
+##Review methods
+###Flow diagram
+
+```{r flowchart, fig.cap="ROSES flow chart for the systematic map, showing the number of records retained at each stage of the review process. Produced using the R package 'ROSES_flowchart' (Haddaway 2020).", echo=FALSE}
+source('ROSES_flowchart.R')
+flowchart <- ROSES_flowchart(dbresults = '44,870',
+                otherresults = 'Academic Search Premier (n=5,614)
+Agricola (n=3)
+Aquatic Sciences and Fisheries (n=6,336)
+DOAJ (n=43)
+EconLit (n=695)
+Greenfile (n=874)
+IBSS (n=1,233)
+MEDLINE (n=1,869)
+ProQuest (n=33)
+PsycINFO (n=213)
+Russian Science Citation Index (n=693)
+Scopus (n= 15,480)
+Sociological Abstracts (n=266)
+WoS Core Collections (n=11,518)
+',
+                deduped = '32,342',
+                dupesremoved = '12,528',
+                tandaincl = '',
+                tandaexcl = '',
+                titleincl = '5,079',
+                titleexcl = '27,263',
+                abstractincl = '2,582',
+                abstractexcl = '2,497',
+                ftretr = '2,335',
+                ftnotretr <- '247',
+                ftincl = '538',
+                ftexcl <- data.frame(reason = c('Relevant review', 'Population', 'Intervention/Exposure', 'Comparator', 'Outcome', 'Study type', 'Language'), n = c('96', '437', '292', '250', '114', '301', '307')),
+                prescreened = '47',
+                studart <- c('585', '902'),
+                finalmapincl = '902',
+                combined = FALSE,
+                type = 'map')
+rsvg::rsvg_pdf(svg = charToRaw(DiagrammeRsvg::export_svg(flowchart)),
+                   file = 'figures/figure1.pdf')
+flowchart
+```
+
+##Research interest
+###Publications over time
+
+```{r yearplot, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Plot showing the final number of articles included in the systematic map by publication year.", results = "hide", fig.keep = 'all'}
+yearplot <- ggplot2::ggplot(data = articles, 
+                           ggplot2::aes(x = as.numeric(year))) +
+  ggplot2::geom_bar(stat = "bin", 
+                    binwidth = 1, 
+                    color = 'White', 
+                    fill = '#8CB3B0') + 
+  ggplot2::theme_minimal() + 
+  ggplot2::labs(
+    x = "Publication year", 
+    y = "Number of studies")
+pdf(file = 'figures/figure 2.pdf', width = (dev.size())[1], height = (dev.size())[2])
+  yearplot
+dev.off()
+yearplot
+```
+
+###Evidence atlas
+[Insert screenshots here]
+
+###Research across mines
+[mines_articles]
+
+###Study country
+
+``` {r country, echo=FALSE}
+#summarise data by country for ARTICLES
+countrydat <- articles %>% 
+  dplyr::count(country, sort = TRUE) %>%
+  dplyr::rename(value = n) %>%
+  dplyr::rename(region = country)
+newdat <- data.frame(region = 'Iceland', value = 0)
+countrydat <- rbind(countrydat, newdat)
+l <- list(color = plotly::toRGB("grey"), width = 0.5)
+countrydat$countrycode <- countrycode::countrycode(countrydat$region, origin = 'country.name', destination = 'iso3c')
+#plot
+library(plotly)
+g <- list(
+  showframe = FALSE,
+  showcoastlines = TRUE,
+  coastlinecolor = toRGB("lightgrey"),
+  projection = list(type = 'Mercator')
+)
+fig <- plot_geo(countrydat)
+fig <- fig %>% add_trace(
+    z = ~value, color = ~value, colors = 'Blues',
+    locations = ~countrycode, marker = list(line = l)
+  )
+fig <- fig %>% colorbar(title = 'Number of articles per country')
+fig <- fig %>% layout(
+    geo = g
+  )
+pdf(file = 'figures/figure 3.pdf', width = (dev.size())[1], height = (dev.size())[2])
+  fig
+dev.off()
+fig
+```
+
+###Study designs
+
+``` {r study_design, echo=FALSE}
+study_design <- ggplot2::ggplot(data = articles, 
+                           ggplot2::aes(x = study_design)) +
+  ggplot2::geom_bar(stat = "count",
+                    color = 'White', 
+                    fill = '#8CB3B0') + 
+  ggplot2::theme_minimal() +
+  ggplot2::stat_count(geom = "text", colour = "#8CB3B0", size = 3.5,
+                      ggplot2::aes(label = ..count..), 
+                      position = ggplot2::position_nudge(y = 15)) +
+  ggExtra::removeGrid(x = TRUE, y = FALSE) +
+  ggplot2::labs(
+    x = "Study design", 
+    y = "Number of articles")
+pdf(file = 'figures/figure 4.pdf', width = (dev.size())[1], height = (dev.size())[2])
+  study_design
+dev.off()
+study_design
+```
+
+###Comparators
+
+``` {r comparators, echo=FALSE}
+comparator <- ggplot2::ggplot(data = articles, 
+                           ggplot2::aes(x = comparator)) +
+  ggplot2::geom_bar(mapping = aes(x = forcats::fct_infreq(comparator)), fill = '#8CB3B0') +
+  ggplot2::theme_minimal() +
+  ggplot2::stat_count(geom = "text", colour = "#8CB3B0", size = 3.5,
+                      ggplot2::aes(label = ..count..), 
+                      position = ggplot2::position_nudge(y = 10)) +
+  ggExtra::removeGrid(x = FALSE, y = TRUE) +
+  ggplot2::labs(
+    x = "Comparator type", 
+    y = "Number of articles") +
+    ggplot2::coord_flip()
+pdf(file = 'figures/figure 5.pdf', width = (dev.size())[1], height = (dev.size())[2])
+  comparator
+dev.off()
+comparator
+```
+
+###Settings
+
+``` {r setting, echo=FALSE}
+setting <- ggplot2::ggplot(data = articles, 
+                           ggplot2::aes(x = setting)) +
+  ggplot2::geom_bar(mapping = aes(x = forcats::fct_infreq(setting)), fill = '#8CB3B0') +
+  ggplot2::theme_minimal() +
+  ggplot2::stat_count(geom = "text", colour = "#8CB3B0", size = 3.5,
+                      ggplot2::aes(label = ..count..), 
+                      position = ggplot2::position_nudge(y = 10)) +
+  ggExtra::removeGrid(x = FALSE, y = TRUE) +
+  ggplot2::labs(
+    x = "Study setting", 
+    y = "Number of articles") +
+    ggplot2::coord_flip()
+pdf(file = 'figures/figure 6.pdf', width = (dev.size())[1], height = (dev.size())[2])
+  setting
+dev.off()
+setting
+```
+
+###Contexts
+
+``` {r context , echo=FALSE}
+context <- ggplot2::ggplot(data = articles, 
+                           ggplot2::aes(x = context)) +
+  ggplot2::geom_bar(mapping = aes(x = forcats::fct_infreq(context)), fill = '#8CB3B0') +
+  ggplot2::theme_minimal() +
+  ggplot2::stat_count(geom = "text", colour = "#8CB3B0", size = 3.5,
+                      ggplot2::aes(label = ..count..), 
+                      position = ggplot2::position_nudge(y = 15)) +
+  ggExtra::removeGrid(x = FALSE, y = TRUE) +
+  ggplot2::labs(
+    x = "Study context", 
+    y = "Number of articles") +
+    ggplot2::coord_flip()
+pdf(file = 'figures/figure 7.pdf', width = (dev.size())[1], height = (dev.size())[2])
+  context
+dev.off()
+context
+```
+
+###Population systems
+
+``` {r population, echo=FALSE}
+population_system <- ggplot2::ggplot(data = articles, 
+                           ggplot2::aes(x = population_system)) +
+  ggplot2::geom_bar(mapping = aes(x = forcats::fct_infreq(population_system)), fill = '#8CB3B0') +
+  ggplot2::theme_minimal() +
+  ggplot2::stat_count(geom = "text", colour = "#8CB3B0", size = 3.5,
+                      ggplot2::aes(label = ..count..), 
+                      position = ggplot2::position_nudge(y = 20)) +
+  ggExtra::removeGrid(x = TRUE, y = FALSE) +
+  ggplot2::labs(
+    x = "Population system", 
+    y = "Number of articles") 
+pdf(file = 'figures/figure 8.pdf', width = (dev.size())[1], height = (dev.size())[2])
+  population_system
+dev.off()
+population_system
+```
+
+###Affected systems, components, factors
+
+``` {r affected, echo=FALSE}
+#this needs to be run at the total outcome level (902 rows)
+#systems
+data$affected_system <- as.factor(data$affected_system)
+affected_system <- ggplot2::ggplot(data = data, 
+                           ggplot2::aes(x = affected_system)) +
+  ggplot2::geom_bar(mapping = ggplot2::aes(x = affected_system), fill = '#8CB3B0') +
+  ggplot2::theme_minimal() +
+  ggplot2::stat_count(geom = "text", colour = "#8CB3B0", size = 3.5,
+                      ggplot2::aes(label = ..count..), 
+                      position = ggplot2::position_nudge(y = 15)) +
+  ggExtra::removeGrid(x = FALSE, y = TRUE) +
+  ggplot2::scale_x_discrete(limits = rev(levels(data$affected_system))) +
+  ggplot2::labs(
+    x = "Affected system", 
+    y = "Number of articles") +
+    ggplot2::coord_flip()
+pdf(file = 'figures/figure 9a.pdf', width = (dev.size())[1], height = (dev.size())[2])
+  affected_system
+dev.off()
+affected_system
+
+#components
+#affected_component <- ggplot2::ggplot(data = data, 
+#                           ggplot2::aes(x = affected_component)) +
+#  ggplot2::geom_bar(mapping = ggplot2::aes(x = affected_component), fill = '#8CB3B0') +
+#  ggplot2::theme_minimal() +
+#  ggplot2::stat_count(geom = "text", colour = "#8CB3B0", size = 3.5,
+#                      ggplot2::aes(label = ..count..), 
+#                      position = ggplot2::position_nudge(y = 10)) +
+#  ggExtra::removeGrid(x = FALSE, y = TRUE) +
+#  ggplot2::scale_x_discrete(limits = rev(levels(data$affected_component))) +
+#  ggplot2::labs(
+#    x = "Affected component", 
+#    y = "Number of articles") +
+#    ggplot2::coord_flip()
+#pdf(file = 'figures/figure 9b.pdf', width = (dev.size())[1], height = (dev.size())[2])
+#  affected_component
+#dev.off()
+#affected_component
+#factors
+data$affected_component <- as.factor(data$affected_component)
+affected_component <- #generate dataframe of affected data
+  tree_df <- data.frame(system = data$affected_system, component = data$affected_component, factor = data$affected_factor)
+tree_df <- data.frame(lapply(tree_df, trimws), stringsAsFactors = FALSE)
+#summarise the dataframe in a new set of dataframs
+summary <- tree_df %>% dplyr::count(system, component, factor, sort = FALSE)
+summary2 <- tree_df %>% dplyr::count(system, component, sort = FALSE)
+summary3 <- tree_df %>% dplyr::count(system, sort = FALSE)
+#generate vertices
+origin <- data.frame(name='origin', value = NA, group = NA, id = NA)
+df1 <- data.frame(name = summary2[,2], value = summary2[,3], group = substring(summary2[,2], 1, 1), id = seq(1:length(summary2[,3])))
+df2 <- data.frame(name = summary3[,1], value = summary3[,2], group = 'origin', id = NA)
+vertices <- rbind(origin, df2, df1)
+#generate edges
+df3 <- data.frame(from = 'origin', to = summary3[,1])
+df4 <- data.frame(from = summary2[,1], to = summary2[,2])
+edges <- rbind(df3, df4)
+#Libraries
+library(ggraph)
+library(igraph)
+library(tidyverse)
+library(RColorBrewer) 
+#Create a graph object
+mygraph <- graph_from_data_frame(edges, vertices = vertices)
+#Make the plot
+affected_component <- ggraph(mygraph, layout = 'dendrogram', circular = TRUE) + 
+  ggraph::geom_edge_diagonal(colour="grey") +
+  ggraph::scale_edge_colour_distiller(palette = "RdPu") +
+  ggraph::geom_node_text(aes(x = x*1.15, y=y*1.15, filter = leaf, label=str_wrap(name, width = 30), 
+                             angle = -((-node_angle(x, y)+90)%%180)+90, 
+                             hjust='outward', colour=group), size=2.7, alpha=1) +
+  ggraph::geom_node_point(aes(filter = leaf, x = x*1.07, y=y*1.07, colour=group, size=value)) +
+  ggplot2::scale_colour_manual(values = c("#4c956c", "#d1495b", "#5e548e", "#edae49", "#30638e"), guide = FALSE) +
+  ggplot2::scale_size_continuous(range = c(0.1,10)) +
+  ggplot2::theme_void() +
+  ggplot2::theme(
+    legend.position='bottom', 
+    legend.direction='horizontal',
+    plot.margin=unit(c(0,0,0,0),"cm"),
+  ) +
+  ggplot2::expand_limits(x = c(-1.7, 1.7), y = c(-1.7, 1.7)) +
+  ggplot2::labs(size = "Number of articles:")
+affected_component
+
+#factors
+data$affected_factor <- as.factor(data$affected_factor)
+affected_factor <- #generate dataframe of affected data
+tree_df <- data.frame(system = data$affected_system, component = data$affected_component, factor = data$affected_factor)
+tree_df <- data.frame(lapply(tree_df, trimws), stringsAsFactors = FALSE)
+#summarise the dataframe in a new set of dataframs
+summary <- tree_df %>% dplyr::count(system, component, factor, sort = FALSE)
+summary2 <- tree_df %>% dplyr::count(system, component, sort = FALSE)
+summary3 <- tree_df %>% dplyr::count(system, sort = FALSE)
+#generate vertices
+origin <- data.frame(name='origin', value = NA, group = NA, id = NA)
+df1 <- data.frame(name = summary[,3], value = summary[,4], group = substring(summary[,3], 1, 1), id = seq(1:length(summary[,3])))
+df2 <- data.frame(name = summary3[,1], value = summary3[,2], group = 'origin', id = NA)
+vertices <- rbind(origin, df2, df1)
+#generate edges
+df3 <- data.frame(from = 'origin', to = summary3[,1])
+df4 <- data.frame(from = summary[,1], to = summary[,3])
+edges <- rbind(df3, df4)
+#Libraries
+library(ggraph)
+library(igraph)
+library(tidyverse)
+library(RColorBrewer) 
+#Create a graph object
+mygraph <- graph_from_data_frame(edges, vertices = vertices)
+#Make the plot
+affected_factor <- ggraph(mygraph, layout = 'dendrogram', circular = TRUE) + 
+  ggraph::geom_edge_diagonal(colour="grey") +
+  ggraph::scale_edge_colour_distiller(palette = "RdPu") +
+  ggraph::geom_node_text(aes(x = x*1.15, y=y*1.15, filter = leaf, label=str_wrap(name, width = 30), 
+                     angle = -((-node_angle(x, y)+90)%%180)+90, 
+                     hjust='outward', colour=group), size=2.7, alpha=1) +
+  ggraph::geom_node_point(aes(filter = leaf, x = x*1.07, y=y*1.07, colour=group, size=value)) +
+  ggplot2::scale_colour_manual(values = c("#4c956c", "#d1495b", "#5e548e", "#edae49", "#30638e"), guide = FALSE) +
+  ggplot2::scale_size_continuous(range = c(0.1,10)) +
+  ggplot2::theme_void() +
+  ggplot2::theme(
+    legend.position='bottom', 
+    legend.direction='horizontal',
+    plot.margin=unit(c(0,0,0,0),"cm"),
+  ) +
+  ggplot2::expand_limits(x = c(-1.7, 1.7), y = c(-1.7, 1.7)) +
+  ggplot2::labs(size = "Number of articles:")
+affected_factor
+```
+
+###Mitigation tested
+
+``` {r mitigation, echo=FALSE}
+mitigation_presence <- ggplot2::ggplot(data = articles, 
+                           ggplot2::aes(x = mitigation)) +
+  ggplot2::geom_bar(mapping = aes(x = forcats::fct_infreq(mitigation)), fill = '#8CB3B0') +
+  ggplot2::theme_minimal() +
+  ggplot2::stat_count(geom = "text", colour = "#8CB3B0", size = 3.5,
+                      ggplot2::aes(label = ..count..), 
+                      position = ggplot2::position_nudge(y = 20)) +
+  ggplot2::coord_flip() + 
+  ggExtra::removeGrid(x = FALSE, y = TRUE) +
+  ggplot2::labs(
+    x = "Mitigation measures investigated", 
+    y = "Number of articles") 
+pdf(file = 'figures/figure 9.pdf', width = (dev.size())[1], height = (dev.size())[2])
+  mitigation_presence
+dev.off()
+mitigation_presence
+```
+
+###Outcome category
+
+``` {r outcome, echo=FALSE}
+outcome_category <- ggplot2::ggplot(data = articles, 
+                           ggplot2::aes(x = outcome_category)) +
+  ggplot2::geom_bar(mapping = aes(x = forcats::fct_infreq(outcome_category)), fill = '#8CB3B0') +
+  ggplot2::theme_minimal() +
+  ggplot2::stat_count(geom = "text", colour = "#8CB3B0", size = 3.5,
+                      ggplot2::aes(label = ..count..), 
+                      position = ggplot2::position_nudge(y = 10)) +
+  ggplot2::coord_flip() + 
+  ggExtra::removeGrid(x = FALSE, y = TRUE) +
+  ggplot2::labs(
+    x = "Outcome category", 
+    y = "Number of articles") 
+pdf(file = 'figures/figure 8.pdf', width = (dev.size())[1], height = (dev.size())[2])
+  outcome_category
+dev.off()
+outcome_category
+```
+
+###Data type
+
+``` {r data_type, echo=FALSE}
+datatype <- ggplot2::ggplot(data = articles, 
+                           ggplot2::aes(x = data_type)) +
+  ggplot2::geom_bar(mapping = aes(x = forcats::fct_infreq(data_type)), fill = '#8CB3B0') +
+  ggplot2::theme_minimal() +
+  ggplot2::stat_count(geom = "text", colour = "#8CB3B0", size = 3.5,
+                      ggplot2::aes(label = ..count..), 
+                      position = ggplot2::position_nudge(y = 25)) +
+  ggExtra::removeGrid(x = TRUE, y = FALSE) +
+  ggplot2::labs(
+    x = "Data type", 
+    y = "Number of articles")
+pdf(file = 'figures/figure 12.pdf', width = (dev.size())[1], height = (dev.size())[2])
+  datatype
+dev.off()
+datatype
+```
+
+
+##Mines
+###Unique mines
+
+``` {r mines, echo=FALSE}
+allmines <- data %>%
+  tidyr::separate_rows(., mine, sep = '; ') #separate instances of multiple mines per cell
+mines_articles <- dplyr::distinct_at(allmines, dplyr::vars('citation', 'mine'), .keep_all = TRUE) #deduplicate on citation:mine combinations (same mines per article)
+mines_list <- dplyr::distinct(allmines, mine, latitude, longitude, mine_type, metals_all, .keep_all = TRUE) #deduplicate on mines by mine name
+mines_list$mine <- sort(mines_list$mine)
+# ***this gives a list of all unique mine names (manually consolidated), all unique lat/long, all unique mine types and all metals mined. Need to go through and consolidate all data for each unique mine name, then check duplicate lat/long for differently named mines at the same location***
+
+allmines_allmetals <- mines_list %>%
+  tidyr::separate_rows(., metals_all, sep = '; ') #separate instances of multiple metlas per cell
+
+#collapse metals
+allmines_allmetals <- allmines_allmetals %>% 
+     dplyr::group_by(mine) %>% 
+     dplyr::mutate(metals = paste0(metals_all, collapse = "; "))
+allmines_allmetals <- dplyr::distinct_at(allmines_allmetals, dplyr::vars('mine', 'latitude', 'longitude', 'mine_type', 'metals'), .keep_all = TRUE) #remove duplicates
+#collapse mine_type
+allmines_allmetals <- allmines_allmetals %>% 
+     dplyr::group_by(mine) %>% 
+     dplyr::mutate(mine_type = paste0(mine_type, collapse = "; "))
+allmines_allmetals <- dplyr::distinct_at(allmines_allmetals, dplyr::vars('mine', 'latitude', 'longitude', 'mine_type', 'metals'), .keep_all = TRUE) #remove duplicates
+
+final_mines <- data.frame(citation = allmines_allmetals$citation, mine = allmines_allmetals$mine, latitude = allmines_allmetals$latitude, longitude = allmines_allmetals$longitude, mine_type = allmines_allmetals$mine_type, metals = allmines_allmetals$metals)
+
+
+mines_from_articles <- mines_articles[order(mines_articles$mine),] %>%
+  select(mine, latitude, longitude, metals_all, mine_type, citation) #order and subset columns
+mines <- dplyr::distinct_at(mines_from_articles, vars('mine', 'metals_all', 'mine_type'), .keep_all = TRUE) #deduplicate on mine, metals and mine type
+#mines_locatable_unique <- dplyr::distinct_at(mines, vars(latitude, longitude), .keep_all = TRUE) #deduplicate on exact lat/long matching
+
+#round lat/long to nearest 0.02 degrees and identify unique locations
+mines_locatable <- mines[!is.na(as.numeric(as.character(mines$latitude))),] #subset keeping just numerical values
+mines_locatable$latitude <- as.numeric(mines_locatable$latitude) #convert to numbers
+mines_locatable$longitude <- as.numeric(mines_locatable$longitude)
+mines_locatable$newlat <- plyr::round_any(mines_locatable$latitude, 0.02) #round to nearest xxx
+mines_locatable$newlong <- plyr::round_any(mines_locatable$longitude, 0.02)
+mines_locatable_unique <- dplyr::distinct_at(mines_locatable, vars(latitude, longitude), .keep_all = TRUE) #new df containing unique mines based on exact lat/long matching
+mines_nolatlong <- mines[is.na(as.numeric(as.character(mines$latitude))),] #subset to regain the NAs
+all_unique_mines <- rbind(mines_locatable_unique[,1:6], mines_nolatlong) #combine those with and without lat/long
+all_unique_mines <- all_unique_mines[order(all_unique_mines$mine),] #sort mine alphabetically
+all_unique_mines$mine_id <- seq(1:nrow(all_unique_mines))
+
+
+```
+
+###Metals mined
+
+```{r metals, echo=FALSE}
+allmetals <- data %>%
+  tidyr::separate_rows(.,
+                       metals_all,
+                       sep = '; ')
+metals_articles <- dplyr::distinct_at(allmetals, dplyr::vars('citation', 'metals_all'), .keep_all = TRUE)
+metals_articles$metals_all <- factor(metals_articles$metals_all, levels=c('Unclear', 'Not stated', 'Zinc', 'Silver', 'Nickel', 'Molybdenum', 'Lead', 'Iron', 'Gold', 'Copper'))
+
+metalsplot <- ggplot2::ggplot(data = metals_articles, 
+                           ggplot2::aes(x = metals_all)) +
+  ggplot2::geom_bar(stat = "count",
+                    color = 'White', 
+                    fill = '#8CB3B0') + 
+  ggplot2::theme_minimal() +
+  ggplot2::stat_count(geom = "text", colour = "#8CB3B0", size = 3.5,
+                      ggplot2::aes(label = ..count..), 
+                      position = ggplot2::position_nudge(y = 10)) +
+  ggplot2::coord_flip() + 
+  ggExtra::removeGrid(x = FALSE, y = TRUE) +
+  ggplot2::labs(
+    x = "Mined metals", 
+    y = "Number of articles")
+pdf(file = 'figures/figure 7.pdf', width = (dev.size())[1], height = (dev.size())[2])
+  metalsplot
+dev.off()
+metalsplot
+```
+
+###Mine type
+
+``` {r mine_type, echo=FALSE}
+#based on article reports
+articles$mine_type <- as.factor(articles$mine_type)
+articles$mine_type <- factor(articles$mine_type, levels = c('Placer mine', 'Surface mine', 'Open pit', 'Underground mine', 'Unclear'))
+summary <- articles %>% dplyr::count(mine_type, sort = FALSE)
+
+mine_type <- ggplot2::ggplot(data = articles, 
+                           ggplot2::aes(x = mine_type)) +
+  ggplot2::geom_bar(mapping = ggplot2::aes(x = forcats::fct_infreq(mine_type)), fill = '#8CB3B0') +
+  ggplot2::theme_minimal() +
+  ggplot2::stat_count(geom = "text", colour = "#8CB3B0", size = 3.5,
+                      ggplot2::aes(label = ..count..), 
+                      position = ggplot2::position_nudge(y = 10)) +
+  ggExtra::removeGrid(x = FALSE, y = TRUE) +
+  ggplot2::coord_flip() + 
+  ggplot2::labs(
+    x = "Mine type", 
+    y = "Number of articles")
+pdf(file = 'figures/figure 12.pdf', width = (dev.size())[1], height = (dev.size())[2])
+  mine_type
+dev.off()
+mine_type
+```
+
+###Extraction stage
+
+``` {r stage, echo=FALSE}
+#stages separately
+#based on articles
+stage <- c('abandonment', 'remediation', 'post-closure', 'decommissioning/\nclosure', 'expansion', 'operation', 'construction', 'exploration', 'prospecting')
+prospecting <- length(which(articles$stage_prospecting == "Y"))
+exploration <- length(which(articles$stage_exploration == "Y"))
+construction <- length(which(articles$stage_construction == "Y"))
+operation <- length(which(articles$stage_operation == "Y"))
+expansion <- length(which(articles$stage_expansion == "Y"))
+decommissioning_closure <- length(which(articles$stage_decommissioning_closure == "Y"))
+postclosure <- length(which(articles$stage_postclosure == "Y"))
+remediation <- length(which(articles$stage_remediation == "Y"))
+abandonment <- length(which(articles$stage_abandonment == "Y"))
+stage_data <- data.frame(stage = gsub('stage_', '', stage), articles = c(prospecting, exploration, construction, operation, expansion, decommissioning_closure, postclosure, remediation, abandonment))
+#stage_data$stage <- as.factor(stage_data$stage)
+stage_data$stage <- gsub('_', '/\n', stage_data$stage)
+stage_data$stage <- gsub('postclosure', 'post-closure', stage_data$stage)
+stage_data$stage <- factor(stage_data$stage, levels = c('abandonment', 'remediation', 'post-closure', 'decommissioning/\nclosure', 'expansion', 'operation', 'construction', 'exploration', 'prospecting'))
+
+stage <- ggplot2::ggplot(data = stage_data, ggplot2::aes(stage, articles)) +
+  ggplot2::geom_bar(fill = '#8CB3B0', stat='identity') +
+  ggplot2::theme_minimal() +
+  ggplot2::geom_text(colour = "#8CB3B0", size = 3.5,
+                      label = stage_data$articles, 
+                      position = ggplot2::position_nudge(y = 10)) +
+  ggExtra::removeGrid(x = FALSE, y = TRUE) +
+  ggplot2::coord_flip() + 
+  ggplot2::labs(
+    x = "Mining stage", 
+    y = "Number of articles")
+pdf(file = 'figures/figure 12.pdf', width = (dev.size())[1], height = (dev.size())[2])
+  stage
+dev.off()
+stage
+
+#multiple stage articles
+articles$stages_all <- paste0(articles[,20], articles[,21], articles[,22], articles[,23], articles[,28], articles[,24], articles[,25], articles[,26], articles[,27]) #concatenate stages
+articles$mult_stages <- stringr::str_count(articles$stages_all, 'Y') #count number of 'Y's in concatenation
+mult_stages_dat <- subset(articles, mult_stages > 1) #subset where number of 'Y's is greater than 1
+mult_stages_datfull <- mult_stages_dat[,20:28] #subset relevant columns only
+#mult_stages_datfull <- as.data.frame(lapply(mult_stages_datfull, function(x) gsub('N', '', x))) #remove all text apart from 'Y'
+mult_stages_datfull <- mult_stages_datfull[,c('stage_prospecting', 'stage_exploration', 'stage_construction', 'stage_operation', 'stage_expansion', 'stage_decommissioning_closure', 'stage_postclosure', 'stage_remediation', 'stage_abandonment')] #reorder columns
+mult_stages_datfull$stages_all <- paste(mult_stages_datfull[,1], mult_stages_datfull[,2], mult_stages_datfull[,3], mult_stages_datfull[,4],
+                                         mult_stages_datfull[,5], mult_stages_datfull[,6], mult_stages_datfull[,7], mult_stages_datfull[,8], mult_stages_datfull[,9], sep='-') #concatenate stages
+mult_stages_datfull <- mult_stages_datfull[order(-xtfrm(mult_stages_datfull[,1]), -xtfrm(mult_stages_datfull[,2]), -xtfrm(mult_stages_datfull[,3]), -xtfrm(mult_stages_datfull[,4]), -xtfrm(mult_stages_datfull[,5]), 
+                                                 -xtfrm(mult_stages_datfull[,6]), -xtfrm(mult_stages_datfull[,7]), -xtfrm(mult_stages_datfull[,8]), -xtfrm(mult_stages_datfull[,9])), ] #order columns
+allstages <- mult_stages_datfull %>% 
+  dplyr::count(stages_all, sort = TRUE)
+
+stages <- ggplot2::ggplot(data = allstages, ggplot2::aes(stages_all, n)) +
+  ggplot2::geom_bar(fill = '#8CB3B0', stat='identity') +
+  ggplot2::theme_minimal() +
+  ggplot2::geom_text(colour = "#8CB3B0", size = 3.5,
+                      label = allstages$n, 
+                      position = ggplot2::position_nudge(y = 0.5)) +
+  ggExtra::removeGrid(x = FALSE, y = TRUE) +
+  ggplot2::coord_flip() + 
+  ggplot2::labs(
+    x = "Mining stages", 
+    y = "Number of articles") +
+  ggplot2::theme(axis.text.y = ggplot2::element_text(margin = ggplot2::margin(r = -5), hjust = 5))
+pdf(file = 'figures/figure 12.pdf', width = (dev.size())[1], height = (dev.size())[2])
+  stages
+dev.off()
+stages
+```
+
+
+#Cross Tabs
+####Country -vs- stage
+
+``` {r country_stage, echo=FALSE}
+#data
+country_stage_art <- articles %>%
+ tidyr::pivot_longer(
+   cols = starts_with("stage_"),
+   names_to = "stage",
+   names_prefix = "stage_",
+   values_to = "present",
+   values_drop_na = TRUE
+ )
+country_stage_art <- subset(country_stage_art, present == 'Y')
+
+country_stage_art_sum <- country_stage_art %>% 
+  dplyr::count(country, stage, sort = TRUE)
+country_stage_art_sum$stage <- gsub('_', '/\n', country_stage_art_sum$stage)
+country_stage_art_sum$stage <- gsub('postclosure', 'post-closure', country_stage_art_sum$stage)
+country_stage_art_sum$stage <- factor(country_stage_art_sum$stage, levels = c('abandonment', 'remediation', 'post-closure', 'decommissioning/\nclosure', 'expansion', 'operation', 'construction', 'exploration', 'prospecting'))
+
+country_stage <- ggplot2::ggplot(country_stage_art_sum, ggplot2::aes(country, stage, fill= n)) + 
+  ggplot2::geom_tile() +
+  ggplot2::scale_fill_gradient(low = "#F3F7F6", high = "#395653", na.value = NA, guide = 'none') +
+  ggplot2::geom_label(ggplot2::aes(label = n), fill = 'white', size = 3)
+country_stage
+```
+
+####Country -vs- metals
+
+``` {r country_metals, echo=FALSE}
+#data - needs to be based on unique mines
+
+```
+
+
