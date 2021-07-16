@@ -13,13 +13,13 @@ ftnotretr_text <- 'Unretrievable full texts'
 ftincl_text <- 'Articles after full text screening'
 ftexcl_text <- 'Excluded full texts'
 prescreened_text <- 'Pre-screened records from other sources (websites and review bibliographies)'
-studart_text <- 'Articles / Studies included in the review'
+studart_text <- 'Articles / Outcomes included in the review'
 caincl_text <- 'Studies included after critical appraisal'
 caexcl_text <- 'Excluded from further synthesis:'
 narrincl_text <- 'Studies included in narrative synthesis'
 finalincl_text <- 'Studies included in quantitative/ qualitative/ other synthesis'
 finalexcl_text <- 'Studies not included in further synthesis'
-finalmapincl_text <- 'Studies included in the systematic map database and narrative synthesis'
+finalmapincl_text <- 'Outcome lines included in the systematic map database and narrative synthesis'
 
 ROSES_flowchart <- function (dbresults,
                              otherresults,

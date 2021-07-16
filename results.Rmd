@@ -52,7 +52,7 @@ WoS Core Collections (n=11,518)
                 abstractincl = '2,582',
                 abstractexcl = '2,497',
                 ftretr = '2,335',
-                ftnotretr <- '247',
+                ftnotretr = '247',
                 ftincl = '538',
                 ftexcl <- data.frame(reason = c('Relevant review', 'Population', 'Intervention/Exposure', 'Comparator', 'Outcome', 'Study type', 'Language'), n = c('96', '437', '292', '250', '114', '301', '307')),
                 prescreened = '47',
@@ -60,10 +60,76 @@ WoS Core Collections (n=11,518)
                 finalmapincl = '902',
                 combined = FALSE,
                 type = 'map')
-rsvg::rsvg_pdf(svg = charToRaw(DiagrammeRsvg::export_svg(flowchart)),
-                   file = 'figures/figure1.pdf')
+#rsvg::rsvg_pdf(svg = charToRaw(DiagrammeRsvg::export_svg(flowchart)),
+#                   file = 'figures/figure1.pdf')
 flowchart
 ```
+
+##Map database
+```{r}
+source('dataframe2html.R')
+data$metals <- data$metals_all
+data2 <- subset(data, select=-c(article_id,
+                review_id,
+                eppi_id,
+                authors,
+                title,
+                year,
+                type,
+                journal,
+                unique_mine,
+                metals_all,
+                multiple_metals))
+
+library(magrittr)
+library(tidyverse)
+#separate
+data2$stage_abandonment <- data2$stage_abandonment %>% 
+  gsub('Y', 'abandonment', .) %>%
+  gsub('N||NR||NS', '', .)
+data2$stage_prospecting <- data2$stage_prospecting %>% 
+  gsub('Y', 'prospecting', .) %>%
+  gsub('N||NR||NS', '', .)
+data2$stage_exploration <- data2$stage_exploration %>% 
+  gsub('Y', 'exploration', .) %>%
+  gsub('N||NR||NS', '', .)
+data2$stage_construction <- data2$stage_construction %>% 
+  gsub('Y', 'construction', .) %>%
+  gsub('N||NR||NS', '', .)
+data2$stage_operation <- data2$stage_operation %>% 
+  gsub('Y', 'operation', .) %>%
+  gsub('N||NR||NS', '', .)
+data2$stage_decommissioning_closure <- data2$stage_decommissioning_closure %>% 
+  gsub('Y', 'decommissioning_closure', .) %>%
+  gsub('N||NR||NS', '', .)
+data2$stage_postclosure <- data2$stage_postclosure %>% 
+  gsub('Y', 'postclosure', .) %>%
+  gsub('N||NR||NS', '', .)
+data2$stage_remediation <- data2$stage_remediation %>% 
+  gsub('Y', 'remediation', .) %>%
+  gsub('N||NR||NS', '', .)
+data2$stage_expansion <- data2$stage_expansion %>% 
+  gsub('Y', 'expansion', .) %>%
+  gsub('N||NR||NS', '', .)
+data2[data2 == ""] <- NA
+data2[data2 == "N/A"] <- NA
+
+data2 <- data2 %>%
+  tidyr::unite(stage,
+               starts_with(paste('stage_',
+                                 sep = '')),
+               sep = '; ',
+               na.rm = TRUE,
+               remove = TRUE)
+
+data2 <- data2[order(data2$citation),]
+write.csv(data2, 'map_database.csv', row.names = FALSE)
+html <- dataframe2html(data2,
+                       tooltips = '',
+                       table_width = '6000px',
+                       hyperlinks = 'TRUE')
+```
+
 
 ##Research interest
 ###Publications over time
@@ -78,11 +144,41 @@ yearplot <- ggplot2::ggplot(data = articles,
   ggplot2::theme_minimal() + 
   ggplot2::labs(
     x = "Publication year", 
-    y = "Number of studies")
-pdf(file = 'figures/figure 2.pdf', width = (dev.size())[1], height = (dev.size())[2])
-  yearplot
-dev.off()
+    y = "Number of articles") +
+  ggExtra::removeGrid(x = TRUE, y = FALSE)
+#pdf(file = 'figures/figure 2.pdf', width = (dev.size())[1], height = (dev.size())[2])
+# yearplot
+#dev.off()
 yearplot
+ggplot2::ggsave(
+  "figures/year.png",
+  width = (dev.size())[1], height = (dev.size())[2],
+  dpi = 1200
+)
+```
+
+###Authors
+
+```{r authors, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Plot showing the final number of articles included in the systematic map by publication year.", results = "hide", fig.keep = 'all'}
+articles$authors <- gsub(', and ', ', ', articles$authors)
+articles$authors <- gsub(' and ', ', ', articles$authors)
+articles$author_number <- nchar(articles$authors) - nchar(gsub(',', '', articles$authors)) +1
+articles$year <- as.numeric(articles$year)
+
+authors <- ggplot2::ggplot(data = articles, 
+                           ggplot2::aes(x = author_number)) +
+  ggplot2::geom_bar(stat = 'count',
+                    color = 'White', 
+                    fill = '#8CB3B0') + 
+  ggplot2::theme_minimal() + 
+  ggplot2::labs(
+    x = "Number of authors", 
+    y = "Number of articles") +
+  ggExtra::removeGrid(x = TRUE, y = FALSE)
+#pdf(file = 'figures/figure 2.pdf', width = (dev.size())[1], height = (dev.size())[2])
+# yearplot
+#dev.off()
+authors
 ```
 
 ###Evidence atlas
@@ -103,7 +199,7 @@ newdat <- data.frame(region = 'Iceland', value = 0)
 countrydat <- rbind(countrydat, newdat)
 l <- list(color = plotly::toRGB("grey"), width = 0.5)
 countrydat$countrycode <- countrycode::countrycode(countrydat$region, origin = 'country.name', destination = 'iso3c')
-#plot
+
 library(plotly)
 g <- list(
   showframe = FALSE,
@@ -116,13 +212,13 @@ fig <- fig %>% add_trace(
     z = ~value, color = ~value, colors = 'Blues',
     locations = ~countrycode, marker = list(line = l)
   )
-fig <- fig %>% colorbar(title = 'Number of articles per country')
+fig <- fig %>% colorbar(title = 'Number of articles\nper country')
 fig <- fig %>% layout(
     geo = g
   )
-pdf(file = 'figures/figure 3.pdf', width = (dev.size())[1], height = (dev.size())[2])
-  fig
-dev.off()
+#pdf(file = 'figures/figure 3.pdf', width = (dev.size())[1], height = (dev.size())[2])
+#  fig
+#dev.off()
 fig
 ```
 
@@ -142,10 +238,12 @@ study_design <- ggplot2::ggplot(data = articles,
   ggplot2::labs(
     x = "Study design", 
     y = "Number of articles")
-pdf(file = 'figures/figure 4.pdf', width = (dev.size())[1], height = (dev.size())[2])
-  study_design
-dev.off()
 study_design
+ggplot2::ggsave(
+   "figures/study_design.png",
+   width = (dev.size())[1], height = (dev.size())[2],
+   dpi = 1200
+ )
 ```
 
 ###Comparators
@@ -163,15 +261,20 @@ comparator <- ggplot2::ggplot(data = articles,
     x = "Comparator type", 
     y = "Number of articles") +
     ggplot2::coord_flip()
-pdf(file = 'figures/figure 5.pdf', width = (dev.size())[1], height = (dev.size())[2])
-  comparator
-dev.off()
 comparator
+ggplot2::ggsave(
+   "figures/comparator.png",
+   width = (dev.size())[1], height = (dev.size())[2],
+   dpi = 1200
+ )
 ```
 
 ###Settings
 
 ``` {r setting, echo=FALSE}
+articles$setting <- gsub('Lab Exp', 'Lab expt', articles$setting)
+articles$setting <- gsub('Lab expteriment', 'Lab expt', articles$setting)
+articles$setting <- gsub('Social Science', 'Social science', articles$setting)
 setting <- ggplot2::ggplot(data = articles, 
                            ggplot2::aes(x = setting)) +
   ggplot2::geom_bar(mapping = aes(x = forcats::fct_infreq(setting)), fill = '#8CB3B0') +
@@ -184,15 +287,20 @@ setting <- ggplot2::ggplot(data = articles,
     x = "Study setting", 
     y = "Number of articles") +
     ggplot2::coord_flip()
-pdf(file = 'figures/figure 6.pdf', width = (dev.size())[1], height = (dev.size())[2])
-  setting
-dev.off()
 setting
+ggplot2::ggsave(
+   "figures/setting.png",
+   width = (dev.size())[1], height = (dev.size())[2],
+   dpi = 1200
+ )
 ```
 
 ###Contexts
 
 ``` {r context , echo=FALSE}
+articles$context <- gsub('mesocosm', 'Mesocosm', articles$context)
+articles$context <- gsub('ex situ', 'Ex situ', articles$context)
+articles$context <- gsub('in situ', 'In situ', articles$context)
 context <- ggplot2::ggplot(data = articles, 
                            ggplot2::aes(x = context)) +
   ggplot2::geom_bar(mapping = aes(x = forcats::fct_infreq(context)), fill = '#8CB3B0') +
@@ -205,10 +313,12 @@ context <- ggplot2::ggplot(data = articles,
     x = "Study context", 
     y = "Number of articles") +
     ggplot2::coord_flip()
-pdf(file = 'figures/figure 7.pdf', width = (dev.size())[1], height = (dev.size())[2])
-  context
-dev.off()
 context
+ggplot2::ggsave(
+   "figures/context.png",
+   width = (dev.size())[1], height = (dev.size())[2],
+   dpi = 1200
+ )
 ```
 
 ###Population systems
@@ -225,148 +335,162 @@ population_system <- ggplot2::ggplot(data = articles,
   ggplot2::labs(
     x = "Population system", 
     y = "Number of articles") 
-pdf(file = 'figures/figure 8.pdf', width = (dev.size())[1], height = (dev.size())[2])
-  population_system
-dev.off()
+#pdf(file = 'figures/figure 8.pdf', width = (dev.size())[1], height = (dev.size())[2])
+#  population_system
+#dev.off()
 population_system
 ```
 
 ###Affected systems, components, factors
 
-``` {r affected, echo=FALSE}
-#this needs to be run at the total outcome level (902 rows)
-#systems
-data$affected_system <- as.factor(data$affected_system)
-affected_system <- ggplot2::ggplot(data = data, 
-                           ggplot2::aes(x = affected_system)) +
-  ggplot2::geom_bar(mapping = ggplot2::aes(x = affected_system), fill = '#8CB3B0') +
-  ggplot2::theme_minimal() +
-  ggplot2::stat_count(geom = "text", colour = "#8CB3B0", size = 3.5,
-                      ggplot2::aes(label = ..count..), 
-                      position = ggplot2::position_nudge(y = 15)) +
-  ggExtra::removeGrid(x = FALSE, y = TRUE) +
-  ggplot2::scale_x_discrete(limits = rev(levels(data$affected_system))) +
-  ggplot2::labs(
-    x = "Affected system", 
-    y = "Number of articles") +
-    ggplot2::coord_flip()
-pdf(file = 'figures/figure 9a.pdf', width = (dev.size())[1], height = (dev.size())[2])
-  affected_system
-dev.off()
-affected_system
-
-#components
-#affected_component <- ggplot2::ggplot(data = data, 
-#                           ggplot2::aes(x = affected_component)) +
-#  ggplot2::geom_bar(mapping = ggplot2::aes(x = affected_component), fill = '#8CB3B0') +
-#  ggplot2::theme_minimal() +
-#  ggplot2::stat_count(geom = "text", colour = "#8CB3B0", size = 3.5,
-#                      ggplot2::aes(label = ..count..), 
-#                      position = ggplot2::position_nudge(y = 10)) +
-#  ggExtra::removeGrid(x = FALSE, y = TRUE) +
-#  ggplot2::scale_x_discrete(limits = rev(levels(data$affected_component))) +
-#  ggplot2::labs(
-#    x = "Affected component", 
-#    y = "Number of articles") +
-#    ggplot2::coord_flip()
-#pdf(file = 'figures/figure 9b.pdf', width = (dev.size())[1], height = (dev.size())[2])
-#  affected_component
-#dev.off()
-#affected_component
+``` {r affected, echo=FALSE, message = FALSE, warnings = FALSE}
 #factors
-data$affected_component <- as.factor(data$affected_component)
-affected_component <- #generate dataframe of affected data
-  tree_df <- data.frame(system = data$affected_system, component = data$affected_component, factor = data$affected_factor)
-tree_df <- data.frame(lapply(tree_df, trimws), stringsAsFactors = FALSE)
-#summarise the dataframe in a new set of dataframs
-summary <- tree_df %>% dplyr::count(system, component, factor, sort = FALSE)
-summary2 <- tree_df %>% dplyr::count(system, component, sort = FALSE)
-summary3 <- tree_df %>% dplyr::count(system, sort = FALSE)
-#generate vertices
-origin <- data.frame(name='origin', value = NA, group = NA, id = NA)
-df1 <- data.frame(name = summary2[,2], value = summary2[,3], group = substring(summary2[,2], 1, 1), id = seq(1:length(summary2[,3])))
-df2 <- data.frame(name = summary3[,1], value = summary3[,2], group = 'origin', id = NA)
-vertices <- rbind(origin, df2, df1)
-#generate edges
-df3 <- data.frame(from = 'origin', to = summary3[,1])
-df4 <- data.frame(from = summary2[,1], to = summary2[,2])
-edges <- rbind(df3, df4)
+#data$affected_factor <- as.factor(data$affected_factor)
+#affected_factor <- #generate dataframe of affected data
+#tree_df <- data.frame(system = data$affected_system, component = data$affected_component, #factor = data$affected_factor)
+#tree_df <- data.frame(lapply(tree_df, trimws), stringsAsFactors = FALSE)
+##summarise the dataframe in a new set of dataframs
+#summary <- tree_df %>% dplyr::count(system, component, factor, sort = FALSE)
+#summary2 <- tree_df %>% dplyr::count(system, component, sort = FALSE)
+#summary3 <- tree_df %>% dplyr::count(system, sort = FALSE)
+##generate vertices
+#origin <- data.frame(name='origin', value = NA, group = NA, id = NA)
+#df1 <- data.frame(name = summary[,3], value = summary[,4], group = substring(summary[,3], 1, #1), id = seq(1:length(summary[,3])))
+#df2 <- data.frame(name = summary3[,1], value = summary3[,2], group = 'origin', id = NA)
+#vertices <- rbind(origin, df2, df1)
+##generate edges
+#df3 <- data.frame(from = 'origin', to = summary3[,1])
+#df4 <- data.frame(from = summary[,1], to = summary[,3])
+#edges <- rbind(df3, df4)
+
+#load edges and vertices from excel file
+edges <- readxl::read_excel("edges_vertices.xlsx", sheet = "edges")
+vertices <- readxl::read_excel("edges_vertices.xlsx", sheet = "vertices")
+vertices$group2 <- factor(vertices$group2) #convert group2 to a factor
+#generate links
+vertices$link <- paste0('output.html?q=_', 
+                         gsub("[^A-Za-z0-9]","",vertices$label))
 #Libraries
 library(ggraph)
 library(igraph)
+library(ggiraph)
 library(tidyverse)
 library(RColorBrewer) 
 #Create a graph object
 mygraph <- graph_from_data_frame(edges, vertices = vertices)
-#Make the plot
-affected_component <- ggraph(mygraph, layout = 'dendrogram', circular = TRUE) + 
+#Make the plots
+#create a plot for the size legend
+sizeplot <- 
+  ggraph(mygraph, layout = 'dendrogram', circular = TRUE) + 
   ggraph::geom_edge_diagonal(colour="grey") +
-  ggraph::scale_edge_colour_distiller(palette = "RdPu") +
-  ggraph::geom_node_text(aes(x = x*1.15, y=y*1.15, filter = leaf, label=str_wrap(name, width = 30), 
+  ggraph::geom_node_text(aes(x = x*1.15, y=y*1.15, filter = leaf, label=str_wrap(sub('.*-', '', label2), width = 300), 
                              angle = -((-node_angle(x, y)+90)%%180)+90, 
                              hjust='outward', colour=group), size=2.7, alpha=1) +
-  ggraph::geom_node_point(aes(filter = leaf, x = x*1.07, y=y*1.07, colour=group, size=value)) +
-  ggplot2::scale_colour_manual(values = c("#4c956c", "#d1495b", "#5e548e", "#edae49", "#30638e"), guide = FALSE) +
+  ggiraph::geom_point_interactive(aes(x = x*1.07, y=y*1.07, data_id = name, color = group2, size=value, tooltip = str_wrap(paste0(label, ' (n=', value, ')'), width = 50))) +
+  ggplot2::scale_colour_manual(values = c("#4c956c", "#d1495b", "#5e548e", "#edae49", "#30638e", "black"), guide = FALSE) +
   ggplot2::scale_size_continuous(range = c(0.1,10)) +
   ggplot2::theme_void() +
   ggplot2::theme(
     legend.position='bottom', 
-    legend.direction='horizontal',
+    legend.direction='vertical',
     plot.margin=unit(c(0,0,0,0),"cm"),
   ) +
-  ggplot2::expand_limits(x = c(-1.7, 1.7), y = c(-1.7, 1.7)) +
-  ggplot2::labs(size = "Number of articles:")
-affected_component
-
-#factors
-data$affected_factor <- as.factor(data$affected_factor)
-affected_factor <- #generate dataframe of affected data
-tree_df <- data.frame(system = data$affected_system, component = data$affected_component, factor = data$affected_factor)
-tree_df <- data.frame(lapply(tree_df, trimws), stringsAsFactors = FALSE)
-#summarise the dataframe in a new set of dataframs
-summary <- tree_df %>% dplyr::count(system, component, factor, sort = FALSE)
-summary2 <- tree_df %>% dplyr::count(system, component, sort = FALSE)
-summary3 <- tree_df %>% dplyr::count(system, sort = FALSE)
-#generate vertices
-origin <- data.frame(name='origin', value = NA, group = NA, id = NA)
-df1 <- data.frame(name = summary[,3], value = summary[,4], group = substring(summary[,3], 1, 1), id = seq(1:length(summary[,3])))
-df2 <- data.frame(name = summary3[,1], value = summary3[,2], group = 'origin', id = NA)
-vertices <- rbind(origin, df2, df1)
-#generate edges
-df3 <- data.frame(from = 'origin', to = summary3[,1])
-df4 <- data.frame(from = summary[,1], to = summary[,3])
-edges <- rbind(df3, df4)
-#Libraries
-library(ggraph)
-library(igraph)
-library(tidyverse)
-library(RColorBrewer) 
-#Create a graph object
-mygraph <- graph_from_data_frame(edges, vertices = vertices)
-#Make the plot
-affected_factor <- ggraph(mygraph, layout = 'dendrogram', circular = TRUE) + 
+  ggplot2::expand_limits(x = c(-2, 2), y = c(-2, 2)) +
+  ggplot2::labs(size = "Number of articles")
+#extract the legend
+sizelegend <- cowplot::get_legend(sizeplot)
+#crate plot for the colour legend
+colourplot <- 
+  ggraph(mygraph, layout = 'dendrogram', circular = TRUE) + 
   ggraph::geom_edge_diagonal(colour="grey") +
-  ggraph::scale_edge_colour_distiller(palette = "RdPu") +
-  ggraph::geom_node_text(aes(x = x*1.15, y=y*1.15, filter = leaf, label=str_wrap(name, width = 30), 
-                     angle = -((-node_angle(x, y)+90)%%180)+90, 
-                     hjust='outward', colour=group), size=2.7, alpha=1) +
-  ggraph::geom_node_point(aes(filter = leaf, x = x*1.07, y=y*1.07, colour=group, size=value)) +
-  ggplot2::scale_colour_manual(values = c("#4c956c", "#d1495b", "#5e548e", "#edae49", "#30638e"), guide = FALSE) +
-  ggplot2::scale_size_continuous(range = c(0.1,10)) +
+  ggraph::geom_node_text(aes(x = x*1.15, y=y*1.15, filter = leaf, label=str_wrap(sub('.*-', '', label2), width = 300), 
+                             angle = -((-node_angle(x, y)+90)%%180)+90, 
+                             hjust='outward', colour=group), size=2.7, alpha=1) +
+  ggiraph::geom_point_interactive(aes(x = x*1.07, y=y*1.07, data_id = name, color = group2, size=value, tooltip = str_wrap(paste0(label, ' (n=', value, ')'), width = 50))) +
+  ggplot2::scale_colour_manual(values = c("#4c956c", "#d1495b", "#5e548e", "#edae49", "#30638e", "black"), guide = 'legend', labels = c("Soil/Geology", "Water", "Air", "Biodiversity", "Societies")) +
+  ggplot2::scale_size_continuous(range = c(0.1,10), guide = FALSE) +
   ggplot2::theme_void() +
   ggplot2::theme(
     legend.position='bottom', 
-    legend.direction='horizontal',
+    legend.direction='vertical',
     plot.margin=unit(c(0,0,0,0),"cm"),
   ) +
-  ggplot2::expand_limits(x = c(-1.7, 1.7), y = c(-1.7, 1.7)) +
-  ggplot2::labs(size = "Number of articles:")
-affected_factor
+  ggplot2::expand_limits(x = c(-2, 2), y = c(-2, 2)) +
+  ggplot2::labs(color = 'System') +
+  ggplot2::guides(color = guide_legend(override.aes = list(size=5)))
+#extract the colour legend
+colourlegend <- cowplot::get_legend(colourplot)
+#combine the legends in a blank plot
+blank_p <- patchwork::plot_spacer() + ggplot2::theme_void()
+legend <- cowplot::plot_grid(sizelegend, colourlegend,
+                             blank_p,
+                             ncol = 1,
+                             align = "none", 
+                             axis = 'l', 
+                             rel_heights = c(2.5, 0.2))
+#create the main plot
+affected_factor <- 
+  ggraph(mygraph, layout = 'dendrogram', circular = TRUE) + 
+  ggraph::geom_edge_diagonal(colour="grey") +
+  ggraph::geom_node_text(aes(x = x*1.15, y=y*1.15, filter = leaf, label=str_wrap(sub('.*-', '', label2), width = 300), 
+                             angle = -((-node_angle(x, y)+90)%%180)+90, 
+                             hjust='outward', colour=group), size=2.7, alpha=1) +
+  ggiraph::geom_point_interactive(aes(x = x*1.07, y=y*1.07, 
+                                      data_id = name, 
+                                      color = group2, 
+                                      size=value, 
+                                      tooltip = str_wrap(paste0(label, ' (n=', value, ')'), width = 50),
+                                      onclick=paste0('window.open("', link , '")'))) + #adds an on-click link
+  ggplot2::scale_colour_manual(values = c("#4c956c", "#d1495b", "#5e548e", "#edae49", "#30638e", "black"), guide = FALSE) +
+  ggplot2::scale_size_continuous(range = c(0.1,10), guide = FALSE) +
+  ggplot2::theme_void() +
+  ggplot2::theme(
+    legend.position='bottom', 
+    legend.direction='vertical',
+    plot.margin=unit(c(0,0,0,0),"cm"),
+  ) +
+  ggplot2::expand_limits(x = c(-2, 2), y = c(-2, 2)) +
+  ggplot2::labs(color = 'System')
+#combine the main plot with the legends
+plot <- cowplot::plot_grid(affected_factor,
+                           legend,
+                           ncol = 2,
+                           align = "h",
+                           axis = "t",
+                           rel_widths = c(0.7, 0.2))
+#create an interactive version
+interactive_plot <- girafe(ggobj = plot, width_svg = 12, height_svg = 9,
+       options = list(opts_tooltip(use_fill = TRUE),
+                      opts_sizing(rescale = FALSE),
+                      opts_hover_inv(css = "opacity:0.1;"),
+                      opts_hover(css = "fill:gray;"),
+                      opts_toolbar(saveaspng = FALSE),
+                      opts_zoom(min = .7, max = 2)))
+interactive_plot
 ```
+[note - exported interactive_dendrogram.html and output.html (itself using the script in database.R) that each become an iframe within visualisation.html (itself knitted from visualisation.Rhtml). All three need to be updated and hosted for the main site to work]
+
+
+``` {r}
+pop_sys_dat <- data %>% 
+  dplyr::count(citation, population_system)
+pop_sys_dat <- tidyr::pivot_wider(pop_sys_dat, names_from = population_system, values_from = n)
+
+co_occur <- pop_sys_dat[!is.na(pop_sys_dat$Social) & !is.na(pop_sys_dat$Environmental),]
+
+co_occur <- merge(co_occur, data, by = 'citation')
+co_occur_new <- subset(co_occur, select=c(citation, affected_factor, population_system))
+co_occur_new <- dplyr::rename(co_occur_new, Citation = citation, Factor = affected_factor, System = population_system)
+write.csv(co_occur_new, 'co_occur_new.csv', row.names = FALSE)
+```
+
 
 ###Mitigation tested
 
 ``` {r mitigation, echo=FALSE}
+articles$mitigation <- gsub('no', 'No', articles$mitigation)
+articles$mitigation <- gsub('yes', 'Yes', articles$mitigation)
+
 mitigation_presence <- ggplot2::ggplot(data = articles, 
                            ggplot2::aes(x = mitigation)) +
   ggplot2::geom_bar(mapping = aes(x = forcats::fct_infreq(mitigation)), fill = '#8CB3B0') +
@@ -379,31 +503,44 @@ mitigation_presence <- ggplot2::ggplot(data = articles,
   ggplot2::labs(
     x = "Mitigation measures investigated", 
     y = "Number of articles") 
-pdf(file = 'figures/figure 9.pdf', width = (dev.size())[1], height = (dev.size())[2])
-  mitigation_presence
-dev.off()
+#pdf(file = 'figures/figure 9.pdf', width = (dev.size())[1], height = (dev.size())[2])
+#  mitigation_presence
+#dev.off()
 mitigation_presence
+
+mitigation_dat <- subset(articles, mitigation == 'Yes')
+system <- trimws(sub('.*-', '', mitigation_dat$affected_system))
+component <- trimws(sub('.*-', '', mitigation_dat$affected_component))
+factor <- trimws(sub('.*-', '', mitigation_dat$affected_factor))
+mitigation_dat$affected <- paste(system, component, factor, sep = ' > ')
+
+mitigation_summary <- mitigation_dat %>% 
+  dplyr::count(affected, sort = TRUE)
 ```
 
 ###Outcome category
 
 ``` {r outcome, echo=FALSE}
-outcome_category <- ggplot2::ggplot(data = articles, 
+data$outcome_category <- gsub('Employment/Economy', 'Employment/economy', data$outcome_category)
+data$outcome_category <- gsub('Soil Characteristics', 'Soil characteristics', data$outcome_category)
+outcome_category <- ggplot2::ggplot(data = data, 
                            ggplot2::aes(x = outcome_category)) +
   ggplot2::geom_bar(mapping = aes(x = forcats::fct_infreq(outcome_category)), fill = '#8CB3B0') +
   ggplot2::theme_minimal() +
   ggplot2::stat_count(geom = "text", colour = "#8CB3B0", size = 3.5,
                       ggplot2::aes(label = ..count..), 
-                      position = ggplot2::position_nudge(y = 10)) +
+                      position = ggplot2::position_nudge(y = 15)) +
   ggplot2::coord_flip() + 
   ggExtra::removeGrid(x = FALSE, y = TRUE) +
   ggplot2::labs(
     x = "Outcome category", 
     y = "Number of articles") 
-pdf(file = 'figures/figure 8.pdf', width = (dev.size())[1], height = (dev.size())[2])
-  outcome_category
-dev.off()
 outcome_category
+ggplot2::ggsave(
+   "figures/outcomes.png",
+   width = (dev.size())[1], height = (dev.size())[2],
+   dpi = 1200
+ )
 ```
 
 ###Data type
@@ -420,9 +557,9 @@ datatype <- ggplot2::ggplot(data = articles,
   ggplot2::labs(
     x = "Data type", 
     y = "Number of articles")
-pdf(file = 'figures/figure 12.pdf', width = (dev.size())[1], height = (dev.size())[2])
-  datatype
-dev.off()
+#pdf(file = 'figures/figure 12.pdf', width = (dev.size())[1], height = (dev.size())[2])
+#  datatype
+#dev.off()
 datatype
 ```
 
@@ -435,11 +572,27 @@ allmines <- data %>%
   tidyr::separate_rows(., mine, sep = '; ') #separate instances of multiple mines per cell
 mines_articles <- dplyr::distinct_at(allmines, dplyr::vars('citation', 'mine'), .keep_all = TRUE) #deduplicate on citation:mine combinations (same mines per article)
 mines_list <- dplyr::distinct(allmines, mine, latitude, longitude, mine_type, metals_all, .keep_all = TRUE) #deduplicate on mines by mine name
-mines_list$mine <- sort(mines_list$mine)
-# ***this gives a list of all unique mine names (manually consolidated), all unique lat/long, all unique mine types and all metals mined. Need to go through and consolidate all data for each unique mine name, then check duplicate lat/long for differently named mines at the same location***
+mines_list <- dplyr::distinct(allmines, unique_mine, .keep_all = TRUE)
 
+#final list of all mines (separated across multi-mine articles and lat/long retained)
+all_mines_dat <- subset(mines_list, select=c(country,
+                                             region,
+                                             location,
+                                             mine,
+                                             longitude,
+                                             latitude))
+write.csv(all_mines_dat, 'unique mines.csv', row.names = FALSE)
+
+summary <- all_mines_dat %>% dplyr::count(country, sort = TRUE)
+summary <- rbind(summary, c('Iceland', '0'))
+
+
+
+
+
+# ***below is not needed***
 allmines_allmetals <- mines_list %>%
-  tidyr::separate_rows(., metals_all, sep = '; ') #separate instances of multiple metlas per cell
+  tidyr::separate_rows(., metals_all, sep = '; ') #separate instances of multiple metals per cell
 
 #collapse metals
 allmines_allmetals <- allmines_allmetals %>% 
@@ -483,7 +636,9 @@ allmetals <- data %>%
                        metals_all,
                        sep = '; ')
 metals_articles <- dplyr::distinct_at(allmetals, dplyr::vars('citation', 'metals_all'), .keep_all = TRUE)
-metals_articles$metals_all <- factor(metals_articles$metals_all, levels=c('Unclear', 'Not stated', 'Zinc', 'Silver', 'Nickel', 'Molybdenum', 'Lead', 'Iron', 'Gold', 'Copper'))
+metals_articles$metals_all <- sub('Unclear', 'Unclear / not stated', metals_articles$metals_all)
+metals_articles$metals_all <- sub('Not stated', 'Unclear / not stated', metals_articles$metals_all)
+metals_articles$metals_all <- factor(metals_articles$metals_all, levels=c('Unclear / not stated', 'Zinc', 'Silver', 'Nickel', 'Molybdenum', 'Lead', 'Iron', 'Gold', 'Copper'))
 
 metalsplot <- ggplot2::ggplot(data = metals_articles, 
                            ggplot2::aes(x = metals_all)) +
@@ -499,10 +654,12 @@ metalsplot <- ggplot2::ggplot(data = metals_articles,
   ggplot2::labs(
     x = "Mined metals", 
     y = "Number of articles")
-pdf(file = 'figures/figure 7.pdf', width = (dev.size())[1], height = (dev.size())[2])
-  metalsplot
-dev.off()
 metalsplot
+ggplot2::ggsave(
+  "figures/metals.png",
+  width = (dev.size())[1], height = (dev.size())[2],
+  dpi = 1200
+)
 ```
 
 ###Mine type
@@ -510,7 +667,10 @@ metalsplot
 ``` {r mine_type, echo=FALSE}
 #based on article reports
 articles$mine_type <- as.factor(articles$mine_type)
-articles$mine_type <- factor(articles$mine_type, levels = c('Placer mine', 'Surface mine', 'Open pit', 'Underground mine', 'Unclear'))
+articles$mine_type <- sub('Placer mine', 'Placer', articles$mine_type)
+articles$mine_type <- sub('Surface mine', 'Surface', articles$mine_type)
+articles$mine_type <- sub('Underground mine', 'Underground', articles$mine_type)
+articles$mine_type <- factor(articles$mine_type, levels = c('Placer', 'Surface', 'Open pit', 'Underground', 'Unclear'))
 summary <- articles %>% dplyr::count(mine_type, sort = FALSE)
 
 mine_type <- ggplot2::ggplot(data = articles, 
@@ -525,10 +685,12 @@ mine_type <- ggplot2::ggplot(data = articles,
   ggplot2::labs(
     x = "Mine type", 
     y = "Number of articles")
-pdf(file = 'figures/figure 12.pdf', width = (dev.size())[1], height = (dev.size())[2])
-  mine_type
-dev.off()
 mine_type
+ggplot2::ggsave(
+  "figures/mine_type.png",
+  width = (dev.size())[1], height = (dev.size())[2],
+  dpi = 1200
+)
 ```
 
 ###Extraction stage
@@ -536,7 +698,6 @@ mine_type
 ``` {r stage, echo=FALSE}
 #stages separately
 #based on articles
-stage <- c('abandonment', 'remediation', 'post-closure', 'decommissioning/\nclosure', 'expansion', 'operation', 'construction', 'exploration', 'prospecting')
 prospecting <- length(which(articles$stage_prospecting == "Y"))
 exploration <- length(which(articles$stage_exploration == "Y"))
 construction <- length(which(articles$stage_construction == "Y"))
@@ -546,7 +707,7 @@ decommissioning_closure <- length(which(articles$stage_decommissioning_closure =
 postclosure <- length(which(articles$stage_postclosure == "Y"))
 remediation <- length(which(articles$stage_remediation == "Y"))
 abandonment <- length(which(articles$stage_abandonment == "Y"))
-stage_data <- data.frame(stage = gsub('stage_', '', stage), articles = c(prospecting, exploration, construction, operation, expansion, decommissioning_closure, postclosure, remediation, abandonment))
+stage_data <- data.frame(stage = c('prospecting', 'exploration', 'construction', 'operation', 'expansion', 'decommissioning_closure', 'postclosure', 'remediation', 'abandonment'), articles = c(prospecting, exploration, construction, operation, expansion, decommissioning_closure, postclosure, remediation, abandonment))
 #stage_data$stage <- as.factor(stage_data$stage)
 stage_data$stage <- gsub('_', '/\n', stage_data$stage)
 stage_data$stage <- gsub('postclosure', 'post-closure', stage_data$stage)
@@ -563,16 +724,18 @@ stage <- ggplot2::ggplot(data = stage_data, ggplot2::aes(stage, articles)) +
   ggplot2::labs(
     x = "Mining stage", 
     y = "Number of articles")
-pdf(file = 'figures/figure 12.pdf', width = (dev.size())[1], height = (dev.size())[2])
-  stage
-dev.off()
 stage
+ggplot2::ggsave(
+  "figures/stage.png",
+  width = (dev.size())[1], height = (dev.size())[2],
+  dpi = 1200
+)
 
 #multiple stage articles
-articles$stages_all <- paste0(articles[,20], articles[,21], articles[,22], articles[,23], articles[,28], articles[,24], articles[,25], articles[,26], articles[,27]) #concatenate stages
+articles$stages_all <- paste0(articles[,21], articles[,22], articles[,23], articles[,24], articles[,29], articles[,25], articles[,26], articles[,27], articles[,28]) #concatenate stages
 articles$mult_stages <- stringr::str_count(articles$stages_all, 'Y') #count number of 'Y's in concatenation
 mult_stages_dat <- subset(articles, mult_stages > 1) #subset where number of 'Y's is greater than 1
-mult_stages_datfull <- mult_stages_dat[,20:28] #subset relevant columns only
+mult_stages_datfull <- mult_stages_dat[,21:29] #subset relevant columns only
 #mult_stages_datfull <- as.data.frame(lapply(mult_stages_datfull, function(x) gsub('N', '', x))) #remove all text apart from 'Y'
 mult_stages_datfull <- mult_stages_datfull[,c('stage_prospecting', 'stage_exploration', 'stage_construction', 'stage_operation', 'stage_expansion', 'stage_decommissioning_closure', 'stage_postclosure', 'stage_remediation', 'stage_abandonment')] #reorder columns
 mult_stages_datfull$stages_all <- paste(mult_stages_datfull[,1], mult_stages_datfull[,2], mult_stages_datfull[,3], mult_stages_datfull[,4],
@@ -584,20 +747,161 @@ allstages <- mult_stages_datfull %>%
 
 stages <- ggplot2::ggplot(data = allstages, ggplot2::aes(stages_all, n)) +
   ggplot2::geom_bar(fill = '#8CB3B0', stat='identity') +
-  ggplot2::theme_minimal() +
+  ggplot2::theme_minimal() + 
+  ggplot2::scale_y_continuous(breaks=c(0, 10, 20)) +
+  ggplot2::theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()) +
   ggplot2::geom_text(colour = "#8CB3B0", size = 3.5,
                       label = allstages$n, 
                       position = ggplot2::position_nudge(y = 0.5)) +
   ggExtra::removeGrid(x = FALSE, y = TRUE) +
-  ggplot2::coord_flip() + 
+  ggplot2::coord_flip(ylim = c(-9, 25), xlim = c(1, 18.5)) + 
   ggplot2::labs(
     x = "Mining stages", 
     y = "Number of articles") +
-  ggplot2::theme(axis.text.y = ggplot2::element_text(margin = ggplot2::margin(r = -5), hjust = 5))
-pdf(file = 'figures/figure 12.pdf', width = (dev.size())[1], height = (dev.size())[2])
-  stages
-dev.off()
+  ggplot2::annotate('text', x =15 , y = -8.65, label = 'prospecting', angle = '90', size = 3, hjust = 0) +
+  ggplot2::annotate('text', x =15 , y = -7.65, label = 'exploration', angle = '90', size = 3, hjust = 0) +
+  ggplot2::annotate('text', x =15 , y = -6.65, label = 'construction', angle = '90', size = 3, hjust = 0) +
+  ggplot2::annotate('text', x =15 , y = -5.65, label = 'operation', angle = '90', size = 3, hjust = 0) +
+  ggplot2::annotate('text', x =15 , y = -4.65, label = 'expansion', angle = '90', size = 3, hjust = 0) +
+  ggplot2::annotate('text', x =15 , y = -3.65, label = 'decomm./closure', angle = '90', size = 3, hjust = 0) +
+  ggplot2::annotate('text', x =15 , y = -2.65, label = 'post-closure', angle = '90', size = 3, hjust = 0) +
+  ggplot2::annotate('text', x =15 , y = -1.65, label = 'remediation', angle = '90', size = 3, hjust = 0) +
+  ggplot2::annotate('text', x =15 , y = -0.65, label = 'abandonment', angle = '90', size = 3, hjust = 0) +
+  ggplot2::geom_rect(xmin = 0.6, xmax = 1.4, ymin = -1, ymax = -0.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 0.6, xmax = 1.4, ymin = -2, ymax = -1.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 0.6, xmax = 1.4, ymin = -3, ymax = -2.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 0.6, xmax = 1.4, ymin = -4, ymax = -3.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 0.6, xmax = 1.4, ymin = -5, ymax = -4.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 0.6, xmax = 1.4, ymin = -6, ymax = -5.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 0.6, xmax = 1.4, ymin = -7, ymax = -6.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 0.6, xmax = 1.4, ymin = -8, ymax = -7.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 0.6, xmax = 1.4, ymin = -9, ymax = -8.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 1.6, xmax = 2.4, ymin = -1, ymax = -0.2, linetype = 0, fill = "lightgray")     +
+  ggplot2::geom_rect(xmin = 1.6, xmax = 2.4, ymin = -2, ymax = -1.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 1.6, xmax = 2.4, ymin = -3, ymax = -2.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 1.6, xmax = 2.4, ymin = -4, ymax = -3.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 1.6, xmax = 2.4, ymin = -5, ymax = -4.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 1.6, xmax = 2.4, ymin = -6, ymax = -5.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 1.6, xmax = 2.4, ymin = -7, ymax = -6.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 1.6, xmax = 2.4, ymin = -8, ymax = -7.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 1.6, xmax = 2.4, ymin = -9, ymax = -8.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 2.6, xmax = 3.4, ymin = -1, ymax = -0.2, linetype = 0, fill = "#EAC435")     +
+  ggplot2::geom_rect(xmin = 2.6, xmax = 3.4, ymin = -2, ymax = -1.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 2.6, xmax = 3.4, ymin = -3, ymax = -2.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 2.6, xmax = 3.4, ymin = -4, ymax = -3.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 2.6, xmax = 3.4, ymin = -5, ymax = -4.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 2.6, xmax = 3.4, ymin = -6, ymax = -5.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 2.6, xmax = 3.4, ymin = -7, ymax = -6.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 2.6, xmax = 3.4, ymin = -8, ymax = -7.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 2.6, xmax = 3.4, ymin = -9, ymax = -8.2, linetype = 0, fill = "lightgray")     +
+  ggplot2::geom_rect(xmin = 3.6, xmax = 4.4, ymin = -1, ymax = -0.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 3.6, xmax = 4.4, ymin = -2, ymax = -1.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 3.6, xmax = 4.4, ymin = -3, ymax = -2.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 3.6, xmax = 4.4, ymin = -4, ymax = -3.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 3.6, xmax = 4.4, ymin = -5, ymax = -4.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 3.6, xmax = 4.4, ymin = -6, ymax = -5.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 3.6, xmax = 4.4, ymin = -7, ymax = -6.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 3.6, xmax = 4.4, ymin = -8, ymax = -7.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 3.6, xmax = 4.4, ymin = -9, ymax = -8.2, linetype = 0, fill = "lightgray")     +
+  ggplot2::geom_rect(xmin = 4.6, xmax = 5.4, ymin = -1, ymax = -0.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 4.6, xmax = 5.4, ymin = -2, ymax = -1.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 4.6, xmax = 5.4, ymin = -3, ymax = -2.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 4.6, xmax = 5.4, ymin = -4, ymax = -3.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 4.6, xmax = 5.4, ymin = -5, ymax = -4.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 4.6, xmax = 5.4, ymin = -6, ymax = -5.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 4.6, xmax = 5.4, ymin = -7, ymax = -6.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 4.6, xmax = 5.4, ymin = -8, ymax = -7.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 4.6, xmax = 5.4, ymin = -9, ymax = -8.2, linetype = 0, fill = "lightgray")     +
+  ggplot2::geom_rect(xmin = 5.6, xmax = 6.4, ymin = -1, ymax = -0.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 5.6, xmax = 6.4, ymin = -2, ymax = -1.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 5.6, xmax = 6.4, ymin = -3, ymax = -2.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 5.6, xmax = 6.4, ymin = -4, ymax = -3.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 5.6, xmax = 6.4, ymin = -5, ymax = -4.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 5.6, xmax = 6.4, ymin = -6, ymax = -5.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 5.6, xmax = 6.4, ymin = -7, ymax = -6.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 5.6, xmax = 6.4, ymin = -8, ymax = -7.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 5.6, xmax = 6.4, ymin = -9, ymax = -8.2, linetype = 0, fill = "lightgray")     +
+  ggplot2::geom_rect(xmin = 6.6, xmax = 7.4, ymin = -1, ymax = -0.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 6.6, xmax = 7.4, ymin = -2, ymax = -1.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 6.6, xmax = 7.4, ymin = -3, ymax = -2.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 6.6, xmax = 7.4, ymin = -4, ymax = -3.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 6.6, xmax = 7.4, ymin = -5, ymax = -4.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 6.6, xmax = 7.4, ymin = -6, ymax = -5.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 6.6, xmax = 7.4, ymin = -7, ymax = -6.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 6.6, xmax = 7.4, ymin = -8, ymax = -7.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 6.6, xmax = 7.4, ymin = -9, ymax = -8.2, linetype = 0, fill = "lightgray")     +
+  ggplot2::geom_rect(xmin = 7.6, xmax = 8.4, ymin = -1, ymax = -0.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 7.6, xmax = 8.4, ymin = -2, ymax = -1.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 7.6, xmax = 8.4, ymin = -3, ymax = -2.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 7.6, xmax = 8.4, ymin = -4, ymax = -3.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 7.6, xmax = 8.4, ymin = -5, ymax = -4.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 7.6, xmax = 8.4, ymin = -6, ymax = -5.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 7.6, xmax = 8.4, ymin = -7, ymax = -6.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 7.6, xmax = 8.4, ymin = -8, ymax = -7.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 7.6, xmax = 8.4, ymin = -9, ymax = -8.2, linetype = 0, fill = "lightgray")     +
+  ggplot2::geom_rect(xmin = 8.6, xmax = 9.4, ymin = -1, ymax = -0.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 8.6, xmax = 9.4, ymin = -2, ymax = -1.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 8.6, xmax = 9.4, ymin = -3, ymax = -2.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 8.6, xmax = 9.4, ymin = -4, ymax = -3.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 8.6, xmax = 9.4, ymin = -5, ymax = -4.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 8.6, xmax = 9.4, ymin = -6, ymax = -5.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 8.6, xmax = 9.4, ymin = -7, ymax = -6.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 8.6, xmax = 9.4, ymin = -8, ymax = -7.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 8.6, xmax = 9.4, ymin = -9, ymax = -8.2, linetype = 0, fill = "lightgray")     +
+  ggplot2::geom_rect(xmin = 9.6, xmax = 10.4, ymin = -1, ymax = -0.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 9.6, xmax = 10.4, ymin = -2, ymax = -1.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 9.6, xmax = 10.4, ymin = -3, ymax = -2.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 9.6, xmax = 10.4, ymin = -4, ymax = -3.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 9.6, xmax = 10.4, ymin = -5, ymax = -4.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 9.6, xmax = 10.4, ymin = -6, ymax = -5.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 9.6, xmax = 10.4, ymin = -7, ymax = -6.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 9.6, xmax = 10.4, ymin = -8, ymax = -7.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 9.6, xmax = 10.4, ymin = -9, ymax = -8.2, linetype = 0, fill = "lightgray")     +
+  ggplot2::geom_rect(xmin = 10.6, xmax = 11.4, ymin = -1, ymax = -0.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 10.6, xmax = 11.4, ymin = -2, ymax = -1.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 10.6, xmax = 11.4, ymin = -3, ymax = -2.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 10.6, xmax = 11.4, ymin = -4, ymax = -3.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 10.6, xmax = 11.4, ymin = -5, ymax = -4.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 10.6, xmax = 11.4, ymin = -6, ymax = -5.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 10.6, xmax = 11.4, ymin = -7, ymax = -6.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 10.6, xmax = 11.4, ymin = -8, ymax = -7.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 10.6, xmax = 11.4, ymin = -9, ymax = -8.2, linetype = 0, fill = "lightgray")     +
+  ggplot2::geom_rect(xmin = 11.6, xmax = 12.4, ymin = -1, ymax = -0.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 11.6, xmax = 12.4, ymin = -2, ymax = -1.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 11.6, xmax = 12.4, ymin = -3, ymax = -2.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 11.6, xmax = 12.4, ymin = -4, ymax = -3.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 11.6, xmax = 12.4, ymin = -5, ymax = -4.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 11.6, xmax = 12.4, ymin = -6, ymax = -5.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 11.6, xmax = 12.4, ymin = -7, ymax = -6.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 11.6, xmax = 12.4, ymin = -8, ymax = -7.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 11.6, xmax = 12.4, ymin = -9, ymax = -8.2, linetype = 0, fill = "lightgray")     +
+  ggplot2::geom_rect(xmin = 12.6, xmax = 13.4, ymin = -1, ymax = -0.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 12.6, xmax = 13.4, ymin = -2, ymax = -1.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 12.6, xmax = 13.4, ymin = -3, ymax = -2.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 12.6, xmax = 13.4, ymin = -4, ymax = -3.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 12.6, xmax = 13.4, ymin = -5, ymax = -4.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 12.6, xmax = 13.4, ymin = -6, ymax = -5.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 12.6, xmax = 13.4, ymin = -7, ymax = -6.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 12.6, xmax = 13.4, ymin = -8, ymax = -7.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 12.6, xmax = 13.4, ymin = -9, ymax = -8.2, linetype = 0, fill = "lightgray")     +
+  ggplot2::geom_rect(xmin = 13.6, xmax = 14.4, ymin = -1, ymax = -0.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 13.6, xmax = 14.4, ymin = -2, ymax = -1.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 13.6, xmax = 14.4, ymin = -3, ymax = -2.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 13.6, xmax = 14.4, ymin = -4, ymax = -3.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 13.6, xmax = 14.4, ymin = -5, ymax = -4.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 13.6, xmax = 14.4, ymin = -6, ymax = -5.2, linetype = 0, fill = "#EAC435") +
+  ggplot2::geom_rect(xmin = 13.6, xmax = 14.4, ymin = -7, ymax = -6.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 13.6, xmax = 14.4, ymin = -8, ymax = -7.2, linetype = 0, fill = "lightgray") +
+  ggplot2::geom_rect(xmin = 13.6, xmax = 14.4, ymin = -9, ymax = -8.2, linetype = 0, fill = "#EAC435")
+
 stages
+ggplot2::ggsave(
+  "figures/stages.png",
+  width = (dev.size())[1], height = (dev.size())[2],
+  dpi = 1200
+)
 ```
 
 
@@ -620,20 +924,53 @@ country_stage_art_sum <- country_stage_art %>%
   dplyr::count(country, stage, sort = TRUE)
 country_stage_art_sum$stage <- gsub('_', '/\n', country_stage_art_sum$stage)
 country_stage_art_sum$stage <- gsub('postclosure', 'post-closure', country_stage_art_sum$stage)
+iceland <- data.frame(country = rep('Iceland', 9), stage = c('abandonment', 'remediation', 'post-closure', 'decommissioning/\nclosure', 'expansion', 'operation', 'construction', 'exploration', 'prospecting'), n = rep(NA, 9))
+country_stage_art_sum <- rbind(country_stage_art_sum, iceland)
 country_stage_art_sum$stage <- factor(country_stage_art_sum$stage, levels = c('abandonment', 'remediation', 'post-closure', 'decommissioning/\nclosure', 'expansion', 'operation', 'construction', 'exploration', 'prospecting'))
 
 country_stage <- ggplot2::ggplot(country_stage_art_sum, ggplot2::aes(country, stage, fill= n)) + 
   ggplot2::geom_tile() +
   ggplot2::scale_fill_gradient(low = "#F3F7F6", high = "#395653", na.value = NA, guide = 'none') +
-  ggplot2::geom_label(ggplot2::aes(label = n), fill = 'white', size = 3)
+  ggplot2::geom_label(ggplot2::aes(label = n), fill = 'white', size = 3) +
+  ggplot2::labs(
+    x = "Country", 
+    y = "Extraction stage")
 country_stage
+ggplot2::ggsave(
+  "figures/country_stage.png",
+  width = (dev.size())[1], height = (dev.size())[2],
+  dpi = 1200
+)
 ```
 
-####Country -vs- metals
+##Gap analysis
 
-``` {r country_metals, echo=FALSE}
-#data - needs to be based on unique mines
 
+``` {r gap_analysis, echo=FALSE}
+
+canada <- subset(data, country == 'Canada')
+CA_operation <- subset(canada, stage_operation == 'Y')
+CA_system_sum <- CA_operation %>% 
+  dplyr::count(affected_factor, sort = TRUE) 
+CA_postclosure <- subset(canada, stage_postclosure == 'Y')
+CA_system_sum <- CA_postclosure %>% 
+  dplyr::count(affected_factor, sort = TRUE) 
+CA_abandonment <- subset(canada, stage_abandonment == 'Y')
+CA_system_sum <- CA_abandonment %>% 
+  dplyr::count(affected_factor, sort = TRUE) 
+
+russia <- subset(data, country == 'Russia')
+RU_operation <- subset(russia, stage_operation == 'Y')
+RU_system_sum <- RU_operation %>% 
+  dplyr::count(affected_factor, sort = TRUE) 
+
+sweden <- subset(data, country == 'Sweden')
+SV_operation <- subset(sweden, stage_operation == 'Y')
+SV_system_sum <- SV_operation %>% 
+  dplyr::count(affected_factor, sort = TRUE)
+
+grndwt_qual <- subset(data, affected_factor == "2B-Quality")
+grndwt_qual_mit <- subset(grndwt_qual, mitigation == 'yes')
+grndwt_qual_mit_sum <- grndwt_qual_mit %>% 
+  dplyr::count(country, sort = TRUE)
 ```
-
-
