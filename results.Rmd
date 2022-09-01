@@ -21,8 +21,11 @@ library(magrittr)
 data <- read.csv('./inst/extdata/3mk_map.csv', stringsAsFactors = FALSE)
 articles <- dplyr::distinct(data, citation, .keep_all = TRUE)
 ```
+
 #Results
+
 ##Review methods
+
 ###Flow diagram
 
 ```{r flowchart, fig.cap="ROSES flow chart for the systematic map, showing the number of records retained at each stage of the review process. Produced using the R package 'ROSES_flowchart' (Haddaway 2020).", echo=FALSE}
@@ -51,17 +54,17 @@ WoS Core Collections (n=11,518)
                 titleexcl = '27,263',
                 abstractincl = '2,582',
                 abstractexcl = '2,497',
-                ftretr = '2,335',
-                ftnotretr = '247',
+                ftretr = '2,342',
+                ftnotretr = '240',
                 ftincl = '538',
-                ftexcl <- data.frame(reason = c('Relevant review', 'Population', 'Intervention/Exposure', 'Comparator', 'Outcome', 'Study type', 'Language'), n = c('96', '437', '292', '250', '114', '301', '307')),
+                ftexcl <- data.frame(reason = c('Relevant review', 'Population', 'Intervention/Exposure', 'Comparator', 'Outcome', 'Study type', 'Language', 'Duplicate'), n = c('96', '437', '292', '250', '114', '301', '307', '7')),
                 prescreened = '47',
-                studart <- c('585', '902'),
-                finalmapincl = '902',
+                studart <- c('585', '904'),
+                finalmapincl = '904',
                 combined = FALSE,
                 type = 'map')
-#rsvg::rsvg_pdf(svg = charToRaw(DiagrammeRsvg::export_svg(flowchart)),
-#                   file = 'figures/figure1.pdf')
+rsvg::rsvg_pdf(svg = charToRaw(DiagrammeRsvg::export_svg(flowchart)),
+                   file = 'figures/figure1.pdf')
 flowchart
 ```
 
@@ -905,8 +908,8 @@ ggplot2::ggsave(
 ```
 
 
-#Cross Tabs
-####Country -vs- stage
+# Cross Tabs
+#### Country -vs- stage
 
 ``` {r country_stage, echo=FALSE}
 #data
@@ -948,26 +951,17 @@ ggplot2::ggsave(
 
 ``` {r gap_analysis, echo=FALSE}
 
-canada <- subset(data, country == 'Canada')
-CA_operation <- subset(canada, stage_operation == 'Y')
-CA_system_sum <- CA_operation %>% 
-  dplyr::count(affected_factor, sort = TRUE) 
-CA_postclosure <- subset(canada, stage_postclosure == 'Y')
-CA_system_sum <- CA_postclosure %>% 
-  dplyr::count(affected_factor, sort = TRUE) 
-CA_abandonment <- subset(canada, stage_abandonment == 'Y')
-CA_system_sum <- CA_abandonment %>% 
+operation <- subset(data, stage_operation == 'Y')
+system_sum <- operation %>% 
   dplyr::count(affected_factor, sort = TRUE) 
 
-russia <- subset(data, country == 'Russia')
-RU_operation <- subset(russia, stage_operation == 'Y')
-RU_system_sum <- RU_operation %>% 
+postclosure <- subset(data, stage_postclosure == 'Y')
+system_sum <- postclosure %>% 
   dplyr::count(affected_factor, sort = TRUE) 
 
-sweden <- subset(data, country == 'Sweden')
-SV_operation <- subset(sweden, stage_operation == 'Y')
-SV_system_sum <- SV_operation %>% 
-  dplyr::count(affected_factor, sort = TRUE)
+abandonment <- subset(data, stage_abandonment == 'Y')
+system_sum <- abandonment %>% 
+  dplyr::count(affected_factor, sort = TRUE) 
 
 grndwt_qual <- subset(data, affected_factor == "2B-Quality")
 grndwt_qual_mit <- subset(grndwt_qual, mitigation == 'yes')

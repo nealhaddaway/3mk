@@ -56,7 +56,6 @@
 #'         "long: some extra text", "genr: some extra text", "qual: some extra text", 
 #'         "theor: some extra text", "refle: some extra text", "search: some extra text")
 #'     html <- dataframe2html(data,
-#'         tooltips = tooltips,
 #'         table_width = '6000px',
 #'         hyperlinks = 'TRUE')
 #' }
